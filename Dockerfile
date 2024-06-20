@@ -1,15 +1,19 @@
-FROM alpine:3.20
-
-RUN apk add git g++ build-base
-
+FROM alpine:3.20 as Build
+RUN apk add git wget g++ build-base
 RUN git clone https://github.com/ggerganov/llama.cpp
 WORKDIR /llama.cpp
-RUN make
+RUN make llama-server
 
-COPY /models /llama.cpp/models
-COPY /prompts /llama.cpp/prompts
+FROM alpine:3.20 as Production
+RUN apk add build-base
+WORKDIR /llama.cpp/models
+RUN wget https://huggingface.co/TheBloke/CapybaraHermes-2.5-Mistral-7B-GGUF/resolve/main/capybarahermes-2.5-mistral-7b.Q2_K.gguf
+RUN chmod +x capybarahermes-2.5-mistral-7b.Q2_K.gguf
+WORKDIR /llama.cpp
+COPY /prompts ./prompts
+COPY --from=Build /llama.cpp/llama-server ./llama-server
 
-CMD ./server -m models/CapybaraHermes/capybarahermes-2.5-mistral-7b.Q2_K.gguf \ 
+CMD ./llama-server -m models/capybarahermes-2.5-mistral-7b.Q2_K.gguf \ 
     -c 512 \ 
     -b 512 \
     -n 512 \
